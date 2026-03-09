@@ -9,3 +9,4 @@ Target: 10,240 bytes (10% of 102,400 bytes)
 | 3    | 97,829      | 95.5% | ~15K | Expanded dictionary | Added anarchism words + XML formatting patterns, major progress! |
 | 4    | 98,136      | 95.8% | ~20K | Dictionary + 2-char pairs | Added common 2-char sequences, slight regression due to overhead |
 | 5    | 103,831     | 101.4% | ~25K | LZ-style pattern matching | Long patterns with back-references, dictionary overhead too high |
+| 6    | 97,610      | 95.3% | ~30K | Optimized dictionary | Compact encoding, reduced overhead, back on track |
