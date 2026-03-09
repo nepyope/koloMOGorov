@@ -11,3 +11,6 @@ Target: 10,240 bytes (10% of 102,400 bytes)
 | 5    | 103,831     | 101.4% | ~25K | LZ-style pattern matching | Long patterns with back-references, dictionary overhead too high |
 | 6    | 97,610      | 95.3% | ~30K | Optimized dictionary | Compact encoding, reduced overhead, back on track |
 | 7    | 104,682     | 102.2% | ~35K | RLE for spaces | Run-length encoding approach, not effective for this data |
+| 8    | ~65,000?    | ~63%? | ~40K | XML template grammar | **BREAKTHROUGH**: Template-based approach, but formatting issues need fixing |
+
+**BEST WORKING VERSION: Iteration 3 - 97,829 bytes (95.5%)**
