@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 
-def find_safe_patterns(text):
-    """Find patterns that can be safely substituted"""
+def find_best_patterns(text):
+    """Find the absolute best patterns to maximize compression ratio"""
     from collections import Counter
     
-    # Find repeated patterns
-    patterns = []
-    
-    # Look for XML patterns first
+    # Look for the most valuable patterns only
     xml_patterns = [
-        ('    ', 4),  # 4 spaces 
-        ('  ', 2),    # 2 spaces
+        ('    ', 4),
+        ('  ', 2), 
         ('</', 2),
         ('</text>', 7),
         ('<text xml:space="preserve">', 28),
@@ -19,99 +16,99 @@ def find_safe_patterns(text):
         ('</page>', 7),
         ('</title>', 8),
         ('<title>', 7),
-        ('xmlns:', 6),
         ('anarchism', 9),
-        ('Anarchism', 9),
         ('anarchist', 9),
         ('political', 9),
         ('government', 10),
         ('revolution', 10),
         ('philosophy', 10),
         ('individual', 10),
-        ('social', 6),
-        ('society', 7),
-        ('economic', 8),
-        ('freedom', 7),
-        ('property', 8),
-        ('capitalism', 10),
-        ('socialist', 9),
-        ('communist', 9),
     ]
     
-    # Count occurrences and calculate savings
-    valid_patterns = []
+    # Also find 3-10 character frequent patterns dynamically
+    dynamic_patterns = {}
+    for length in range(3, 11):
+        counts = Counter()
+        for i in range(len(text) - length + 1):
+            substring = text[i:i + length]
+            counts[substring] += 1
+        
+        # Keep top patterns for this length
+        for pattern, freq in counts.most_common(5):
+            if freq >= 3:
+                savings = freq * (len(pattern) - 1) - len(pattern) - 1
+                if savings > 5:
+                    dynamic_patterns[pattern] = (freq, savings)
+    
+    # Combine static and dynamic patterns
+    all_patterns = []
+    
+    # Add static patterns
     for pattern, length in xml_patterns:
         count = text.count(pattern)
-        savings = count * (length - 1)  # Each replacement saves (length-1) characters
-        if count >= 3 and savings > 10:  # Must save at least 10 characters total
-            valid_patterns.append((pattern, count, savings))
+        if count >= 3:
+            savings = count * (length - 1)
+            all_patterns.append((pattern, count, savings))
     
-    # Sort by savings
-    valid_patterns.sort(key=lambda x: x[2], reverse=True)
-    return valid_patterns
+    # Add dynamic patterns
+    for pattern, (freq, savings) in dynamic_patterns.items():
+        all_patterns.append((pattern, freq, savings))
+    
+    # Remove duplicates and sort by savings
+    seen = set()
+    unique_patterns = []
+    for item in all_patterns:
+        if item[0] not in seen:
+            seen.add(item[0])
+            unique_patterns.append(item)
+    
+    unique_patterns.sort(key=lambda x: x[2], reverse=True)
+    return unique_patterns
 
-def create_minimal_script(text):
-    """Create the most minimal possible script"""
+def create_ultra_compact_script(text):
+    """Create most compact script possible"""
     
-    patterns = find_safe_patterns(text)
+    patterns = find_best_patterns(text)
     
-    # Use single byte substitution characters that don't appear in the text
+    # Use single bytes for replacement, prioritizing efficiency
     compressed = text
-    substitutions = {}
+    subs = {}
     
-    # Find unused characters (prioritize high bytes to avoid UTF-8 issues)
-    used_chars = set(text)
-    available = []
-    for i in range(255, 0, -1):
-        if chr(i) not in used_chars:
-            available.append(chr(i))
+    # Find unused characters
+    used = set(text)
+    avail = [chr(i) for i in range(255, 0, -1) if chr(i) not in used and i > 31][:50]
     
-    # Apply substitutions for highest-saving patterns
-    char_idx = 0
-    actual_savings = 0
-    for pattern, count, savings in patterns[:min(len(available), 50)]:
-        if char_idx >= len(available):
-            break
-        
-        replacement = available[char_idx]
-        substitutions[replacement] = pattern
-        compressed = compressed.replace(pattern, replacement)
-        actual_savings += count * (len(pattern) - 1)
-        char_idx += 1
+    # Apply only the most valuable substitutions
+    for pattern, count, savings in patterns[:len(avail)]:
+        if avail:
+            replacement = avail.pop(0)
+            subs[replacement] = pattern
+            compressed = compressed.replace(pattern, replacement)
     
-    print(f"Applied {len(substitutions)} substitutions")
-    print(f"Text reduced from {len(text)} to {len(compressed)} chars")
-    print(f"Estimated savings: {actual_savings} characters")
+    print(f"Substitutions: {len(subs)}")
+    print(f"Text: {len(text)} -> {len(compressed)} chars")
     
-    # Create ultra-minimal script
-    script = f"""#!/usr/bin/env python3
-d={repr(substitutions)}
-s={repr(compressed)}
-for k,v in d.items():s=s.replace(k,v)
-print(s,end='')"""
+    # Create ultra-minimal script with shortest possible syntax
+    script = f'#!/usr/bin/env python3\nd={subs}\ns={repr(compressed)}\nfor k,v in d.items():s=s.replace(k,v)\nprint(s,end="")'
     
     return script
 
 def main():
-    # Read original data
     with open('enwik9_100kb.txt', 'r') as f:
         text = f.read()
     
     original_bytes = len(text.encode('utf-8'))
-    print(f"Original size: {original_bytes} bytes")
+    print(f"Original: {original_bytes} bytes")
     
-    # Create script
-    script = create_minimal_script(text)
+    script = create_ultra_compact_script(text)
     
     script_bytes = len(script.encode('utf-8'))
-    print(f"Script size: {script_bytes} bytes")
-    print(f"Compression ratio: {script_bytes / original_bytes * 100:.1f}%")
+    print(f"Script: {script_bytes} bytes ({script_bytes/original_bytes*100:.1f}%)")
     
-    # Save script
     with open('compress.py', 'w') as f:
         f.write(script)
     
-    print("compress.py generated!")
+    print("Final compress.py generated!")
 
 if __name__ == "__main__":
     main()
