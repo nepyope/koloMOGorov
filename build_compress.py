@@ -39,6 +39,9 @@ while True:
     
     page_end = pages_text.find('</page>', page_start)
     if page_end == -1:
+        # Handle incomplete last page (truncated file)
+        page_content = pages_text[page_start:]
+        page_sections.append(page_content)
         break
         
     page_content = pages_text[page_start:page_end + 7]
@@ -63,6 +66,7 @@ for i, page_xml in enumerate(page_sections):
     comment_m = re.search(r'<comment>(.*?)</comment>', page_xml, re.DOTALL)
     text_m = re.search(r'<text xml:space="preserve">(.*?)</text>', page_xml, re.DOTALL)
     
+    # Handle complete pages
     if title_m and id_m and rev_id_m and timestamp_m and text_m:
         title = title_m.group(1)
         page_id = id_m.group(1)
@@ -87,6 +91,42 @@ for i, page_xml in enumerate(page_sections):
         # Store as tab-separated values (like iteration 8)
         row = [title, page_id, rev_id, timestamp, user, user_id, minor, comment, text_content]
         page_data.append(row)
+    # Handle incomplete final page (truncated)
+    elif title_m and id_m and not page_xml.endswith('</page>'):
+        # This is the truncated final page, store what we have
+        title = title_m.group(1) 
+        page_id = id_m.group(1)
+        # For incomplete page, use minimal data to match truncation
+        rev_id = rev_id_m.group(1) if rev_id_m else ''
+        timestamp = timestamp_m.group(1) if timestamp_m else ''
+        
+        if contrib_m:
+            if contrib_m.group(1):  # username
+                user = contrib_m.group(1)
+                user_id = contrib_m.group(2)
+            else:  # IP
+                user = contrib_m.group(3)
+                user_id = ''
+        else:
+            user = ''
+            user_id = ''
+        
+        minor = '1' if minor_m else '0'
+        comment = comment_m.group(1) if comment_m else ''
+        
+        # Extract the truncated text content  
+        if text_m:
+            text_content = text_m.group(1)
+        else:
+            # Handle case where text tag is incomplete
+            text_start = page_xml.find('<text xml:space="preserve">')
+            if text_start != -1:
+                text_content = page_xml[text_start + 28:]  # After the opening tag
+            else:
+                text_content = ''
+        
+        row = [title, page_id, rev_id, timestamp, user, user_id, minor, comment, text_content]
+        page_data.append(row)
 
 print(f"Parsed {len(page_data)} pages successfully")
 
@@ -96,8 +136,9 @@ for row in page_data:
     escaped_row = []
     for field in row:
         field_str = str(field)
-        # Escape special characters
+        # Escape special characters (order matters!)
         field_str = field_str.replace('\\', '\\\\')
+        field_str = field_str.replace('&', '\\&')
         field_str = field_str.replace('\t', '\\t') 
         field_str = field_str.replace('\n', '\\n')
         escaped_row.append(field_str)
@@ -116,8 +157,8 @@ for line in d.split('\\n'):
  parts=line.split('\\t')
  if len(parts)!=9:continue
  title,page_id,rev_id,timestamp,user,user_id,minor,comment,text=parts
- text=text.replace('\\\\n','\\n').replace('\\\\t','\\t').replace('\\\\\\\\','\\\\')
- comment=comment.replace('\\\\n','\\n')
+ text=text.replace('\\\\\\\\n','\\\\n').replace('\\\\\\\\t','\\\\t').replace('\\\\\\\\&','&').replace('\\\\\\\\\\\\\\\\','\\\\\\\\')
+ comment=comment.replace('\\\\\\\\n','\\\\n').replace('\\\\\\\\&','&')
  sys.stdout.write('  <page>\\n    <title>'+title+'</title>\\n    <id>'+page_id+'</id>\\n    <revision>\\n      <id>'+rev_id+'</id>\\n      <timestamp>'+timestamp+'</timestamp>\\n      <contributor>\\n        ')
  if '.' in user and user.count('.')>=3:
   sys.stdout.write('<ip>'+user+'</ip>')
